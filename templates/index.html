@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Advik Outfit Predictor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero">
+        <p class="kicker">Advik Wardrobe Intelligence</p>
+        <h1>Advik Outfit Predictor</h1>
+        <p class="subtitle">Pick a weekday and get Advik's most likely outfits.</p>
+      </header>
+
+      <section class="card">
+        <form method="post" class="form">
+          <label for="day">Weekday</label>
+          <select id="day" name="day" required>
+            <option value="" disabled {% if not selected_day %}selected{% endif %}>
+              Select a weekday
+            </option>
+            {% for day in days %}
+              <option value="{{ day }}" {% if selected_day == day %}selected{% endif %}>
+                {{ day }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <label for="top_k">How many results</label>
+          <input id="top_k" name="top_k" type="number" min="1" max="10" value="{{ top_k }}">
+
+          <button type="submit">Predict Advik outfits</button>
+        </form>
+      </section>
+
+      {% if error_message %}
+        <div class="alert">{{ error_message }}</div>
+      {% endif %}
+
+      {% if used_features %}
+        <section class="card">
+          <h2>Advik features used</h2>
+          <ul class="feature-list">
+            {% for key, value in used_features.items() %}
+              <li><strong>{{ key }}:</strong> {{ value }}</li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+      {% if predictions %}
+        <section class="card">
+          <h2>Advik top predictions</h2>
+          <ul class="prediction-list">
+            {% for item in predictions %}
+              <li>
+                <div class="outfit">{{ item.outfit }}</div>
+                <div class="probability">{{ (item.probability * 100) | round(1) }}%</div>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
