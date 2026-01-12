@@ -1,4 +1,7 @@
+.DS_Store
 .venv/
+model.joblib
+admin_config.json
+outfits.csv
 __pycache__/
 *.pyc
-.DS_Store

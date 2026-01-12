@@ -56,6 +56,29 @@ h1 {
   font-size: 1.1rem;
 }
 
+.admin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.admin-link:hover {
+  text-decoration: underline;
+}
+
+textarea {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e0d8cc;
+  font-size: 1rem;
+  font-family: "Manrope", sans-serif;
+  min-height: 120px;
+}
+
 .card {
   background: var(--surface);
   border-radius: var(--radius);

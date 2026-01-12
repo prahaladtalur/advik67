@@ -5,9 +5,9 @@ Train a model from a CSV and serve predictions with a Flask web app.
 ## Setup
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 ## Train
@@ -15,7 +15,7 @@ pip install -r requirements.txt
 Place your CSV in this folder and run:
 
 ```bash
-python train_model.py --data outfits.csv --model model.joblib
+./train_start.sh
 ```
 
 Expected columns (case-insensitive):
@@ -27,10 +27,19 @@ Expected columns (case-insensitive):
 
 Rows with missing labels or day are ignored.
 
-## Run the app
+## Admin credentials
+
+Set environment variables before running:
 
 ```bash
-python app.py
+export ADMIN_USER="advik67"
+export ADMIN_PASSWORD="advik67"
+export FLASK_SECRET_KEY="change-me"
 ```
 
-Then open `http://127.0.0.1:5000`.
+Optional:
+```bash
+export CSV_PATH="outfits.csv"
+export MODEL_PATH="model.joblib"
+export CONFIG_PATH="admin_config.json"
+```

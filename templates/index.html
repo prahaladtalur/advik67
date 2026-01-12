@@ -12,6 +12,7 @@
         <p class="kicker">Advik Wardrobe Intelligence</p>
         <h1>Advik Outfit Predictor</h1>
         <p class="subtitle">Pick a weekday and get Advik's most likely outfits.</p>
+        <a class="admin-link" href="{{ url_for('admin') }}">Admin</a>
       </header>
 
       <section class="card">
@@ -39,6 +40,10 @@
         <div class="alert">{{ error_message }}</div>
       {% endif %}
 
+      {% if status_message %}
+        <div class="alert">{{ status_message }}</div>
+      {% endif %}
+
       {% if used_features %}
         <section class="card">
           <h2>Advik features used</h2>
@@ -49,6 +54,23 @@
           </ul>
         </section>
       {% endif %}
+
+      <section class="card">
+        <h2>Log today's outfit</h2>
+        <form method="post" class="form">
+          <input type="hidden" name="action" value="log_outfit">
+          <label for="entry_date">Date</label>
+          <input id="entry_date" name="entry_date" type="date" value="{{ today_value }}" required>
+
+          <label for="entry_top">Top</label>
+          <input id="entry_top" name="entry_top" type="text" placeholder="Black QZ" required>
+
+          <label for="entry_bottom">Bottom</label>
+          <input id="entry_bottom" name="entry_bottom" type="text" placeholder="Grey Sweats" required>
+
+          <button type="submit">Save today's outfit</button>
+        </form>
+      </section>
 
       {% if predictions %}
         <section class="card">

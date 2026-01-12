@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin - Advik Outfit Predictor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero">
+        <p class="kicker">Admin Console</p>
+        <h1>Advik Controls</h1>
+        <p class="subtitle">Manage data, models, and outfit probabilities.</p>
+        <a class="admin-link" href="{{ url_for('index') }}">Back to predictor</a>
+      </header>
+
+      {% if error_message %}
+        <div class="alert">{{ error_message }}</div>
+      {% endif %}
+
+      {% if status_message %}
+        <div class="alert">{{ status_message }}</div>
+      {% endif %}
+
+      {% if not is_admin %}
+        <section class="card">
+          <h2>Admin login</h2>
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="login">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" required>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required>
+            <button type="submit">Login</button>
+          </form>
+        </section>
+      {% else %}
+        <section class="card">
+          <h2>Model controls</h2>
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="retrain">
+            <button type="submit">Retrain model</button>
+          </form>
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="reset_model">
+            <button type="submit">Reset model</button>
+          </form>
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="toggle_mode">
+            <label for="force_synthetic">Prediction mode</label>
+            <select id="force_synthetic" name="force_synthetic">
+              <option value="1" {% if config.force_synthetic %}selected{% endif %}>
+                Synthetic
+              </option>
+              <option value="0" {% if not config.force_synthetic %}selected{% endif %}>
+                Model
+              </option>
+            </select>
+            <button type="submit">Update mode</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Edit synthetic weights</h2>
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="update_weights">
+            <label for="top_weights">Top weights (item: weight)</label>
+            <textarea id="top_weights" name="top_weights" rows="8">{{ top_weights_text }}</textarea>
+            <label for="bottom_weights">Bottom weights (item: weight)</label>
+            <textarea id="bottom_weights" name="bottom_weights" rows="8">{{ bottom_weights_text }}</textarea>
+            <button type="submit">Save weights</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Upload CSV</h2>
+          <form method="post" enctype="multipart/form-data" class="form">
+            <input type="hidden" name="action" value="upload_csv">
+            <input type="file" name="csv_file" accept=".csv" required>
+            <button type="submit">Upload</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Delete recent rows</h2>
+          {% if recent_rows %}
+            <form method="post" class="form">
+              <input type="hidden" name="action" value="delete_rows">
+              {% for idx, row in recent_rows %}
+                <label>
+                  <input type="checkbox" name="row_index" value="{{ idx }}">
+                  {{ row }}
+                </label>
+              {% endfor %}
+              <button type="submit">Delete selected</button>
+            </form>
+          {% else %}
+            <p>No recent rows available.</p>
+          {% endif %}
+        </section>
+
+        <section class="card">
+          <h2>CSV maintenance</h2>
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="clear_csv">
+            <button type="submit">Clear CSV</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <form method="post" class="form">
+            <input type="hidden" name="action" value="logout">
+            <button type="submit">Logout</button>
+          </form>
+        </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
