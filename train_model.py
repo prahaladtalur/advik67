@@ -130,7 +130,22 @@ def main() -> None:
     if not csv_path.exists():
         raise FileNotFoundError(f"CSV not found: {csv_path}")
 
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, sep=None, engine="python")
+
+    if len(df.columns) == 1 and "\t" in df.columns[0]:
+        df = pd.read_csv(csv_path, sep="\t", engine="python")
+
+    if "Date" not in df.columns and any(
+        str(col).upper().startswith("POSSIBLE TOPS") for col in df.columns
+    ):
+        df = pd.read_csv(csv_path, sep="\t", engine="python", header=1)
+
+    rename_map = {
+        "Day of the Week": "Day",
+        "Hoodie/Jacket": "Top",
+        "Pants/Sweats Color": "Bottom",
+    }
+    df = df.rename(columns=rename_map)
     df = _normalize_columns(df)
 
     y = _infer_target(df)

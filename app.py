@@ -23,22 +23,22 @@ MODEL_PATH = os.environ.get("MODEL_PATH", "model.joblib")
 FORCE_SYNTHETIC = os.environ.get("FORCE_SYNTHETIC", "1") == "1"
 BLACK_BONUS = float(os.environ.get("BLACK_BONUS", "0.35"))
 
-SYNTHETIC_TOPS = [
-    "Black QZ",
-    "Black Hoodie",
-    "Camo Hoodie",
-    "Cape Cod",
-    "Tow Truck",
-    "Columbia Puffer",
-    "Blue Columbia Pullover",
-]
+SYNTHETIC_TOP_WEIGHTS = {
+    "Black QZ": 0.2,
+    "Black Hoodie": 0.2,
+    "Camo Hoodie": 0.15,
+    "Cape Cod": 0.15,
+    "Tow Truck": 0.15,
+    "Columbia Puffer": 0.14,
+    "Blue Patagonia Pullover": 0.01,
+}
 
-SYNTHETIC_BOTTOMS = [
-    "Grey Sweats",
-    "Black Sweats",
-    "Tan Sweats",
-    "Navy Pants",
-]
+SYNTHETIC_BOTTOM_WEIGHTS = {
+    "Grey Sweats": 0.45,
+    "Black Sweats": 0.44,
+    "Tan Sweats": 0.10,
+    "Navy Pants": 0.01,
+}
 
 _model_bundle: Optional[Dict[str, object]] = None
 _model_error: Optional[str] = None
@@ -90,6 +90,26 @@ def _get_classes(pipeline) -> List[str]:
 
 def _is_black_outfit(outfit: str) -> bool:
     return "black" in outfit.lower()
+
+
+def _colors_in_text(text: str) -> set:
+    tokens = {"black", "grey", "gray", "tan", "navy", "blue", "camo"}
+    found = set()
+    lower = text.lower()
+    for token in tokens:
+        if token in lower:
+            found.add(token)
+    if "gray" in found:
+        found.add("grey")
+    return found
+
+
+def _is_mono_color(top: str, bottom: str) -> bool:
+    top_colors = _colors_in_text(top)
+    bottom_colors = _colors_in_text(bottom)
+    if not top_colors or not bottom_colors:
+        return False
+    return bool(top_colors & bottom_colors)
 
 
 def _prioritize_black(
@@ -163,23 +183,34 @@ def predict_outfits(
 
 
 def generate_synthetic_outfits(top_k: int) -> List[Dict[str, object]]:
-    combos = [
-        f"{top} | {bottom}"
-        for top in SYNTHETIC_TOPS
-        for bottom in SYNTHETIC_BOTTOMS
-    ]
-    black_combos = [combo for combo in combos if _is_black_outfit(combo)]
-    picks = []
-    if black_combos:
-        picks.append(random.choice(black_combos))
-    remaining = [combo for combo in combos if combo not in picks]
-    if remaining and len(picks) < top_k:
-        picks.extend(random.sample(remaining, k=min(top_k - len(picks), len(remaining))))
-    raw_scores = [random.random() for _ in picks]
-    total = sum(raw_scores) or 1.0
+    tops = list(SYNTHETIC_TOP_WEIGHTS.keys())
+    top_weights = list(SYNTHETIC_TOP_WEIGHTS.values())
+    bottoms = list(SYNTHETIC_BOTTOM_WEIGHTS.keys())
+    bottom_weights = list(SYNTHETIC_BOTTOM_WEIGHTS.values())
+
     results = []
-    for outfit, score in zip(picks, raw_scores):
-        results.append({"outfit": outfit, "probability": float(score / total)})
+    seen = set()
+    attempts = 0
+    max_attempts = 50
+
+    while len(results) < top_k and attempts < max_attempts:
+        top = random.choices(tops, weights=top_weights, k=1)[0]
+        bottom = random.choices(bottoms, weights=bottom_weights, k=1)[0]
+        if _is_mono_color(top, bottom):
+            attempts += 1
+            continue
+        outfit = f"{top} | {bottom}"
+        attempts += 1
+        if outfit in seen:
+            continue
+        seen.add(outfit)
+        score = SYNTHETIC_TOP_WEIGHTS[top] * SYNTHETIC_BOTTOM_WEIGHTS[bottom]
+        results.append({"outfit": outfit, "probability": float(score)})
+
+    total = sum(item["probability"] for item in results) or 1.0
+    for item in results:
+        item["probability"] = float(item["probability"] / total)
+
     results.sort(key=lambda item: item["probability"], reverse=True)
     return results
 
