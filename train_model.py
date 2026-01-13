@@ -79,13 +79,23 @@ def _infer_target(df: pd.DataFrame) -> pd.Series:
     # 1) Use Outfit if present
     if "Outfit" in df.columns:
         outfit = df["Outfit"].astype(str).str.strip()
-        outfit = outfit.replace({"nan": None, "None": None, "": None})
+        outfit = outfit.replace({"nan": None, "None": None, "": None, "Absent": None, "absent": None})
         return outfit
 
     # 2) Combine Top and Bottom if present
     if "Top" in df.columns and "Bottom" in df.columns:
-        top = df["Top"].astype(str).str.strip().replace({"nan": None, "None": None, "": None})
-        bottom = df["Bottom"].astype(str).str.strip().replace({"nan": None, "None": None, "": None})
+        top = (
+            df["Top"]
+            .astype(str)
+            .str.strip()
+            .replace({"nan": None, "None": None, "": None, "Absent": None, "absent": None})
+        )
+        bottom = (
+            df["Bottom"]
+            .astype(str)
+            .str.strip()
+            .replace({"nan": None, "None": None, "": None, "Absent": None, "absent": None})
+        )
         combined = top + " | " + bottom
         combined = combined.where(top.notna() & bottom.notna())
         return combined.str.strip()
@@ -150,8 +160,9 @@ def main() -> None:
 
     y = _infer_target(df)
     # Drop rows with missing/empty target
-    y = y.replace({"nan": None, "None": None, "": None})
+    y = y.replace({"nan": None, "None": None, "": None, "Absent": None, "absent": None})
     mask = y.notna()
+    mask &= ~y.astype(str).str.lower().str.contains("absent")
     df = df.loc[mask].reset_index(drop=True)
     y = y.loc[mask].reset_index(drop=True)
 

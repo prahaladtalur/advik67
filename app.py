@@ -30,7 +30,6 @@ MODEL_PATH = os.environ.get("MODEL_PATH", "model.joblib")
 CSV_PATH = os.environ.get("CSV_PATH", "outfits.csv")
 CONFIG_PATH = os.environ.get("CONFIG_PATH", "admin_config.json")
 FORCE_SYNTHETIC_ENV = os.environ.get("FORCE_SYNTHETIC")
-BLACK_BONUS = float(os.environ.get("BLACK_BONUS", "0.35"))
 ADMIN_USER = os.environ.get("ADMIN_USER", "advik67")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "advik67")
 
@@ -191,10 +190,6 @@ def _get_classes(pipeline) -> List[str]:
     raise AttributeError("Model does not expose classes_.")
 
 
-def _is_black_outfit(outfit: str) -> bool:
-    return "black" in outfit.lower()
-
-
 def _colors_in_text(text: str) -> set:
     tokens = {"black", "grey", "gray", "tan", "navy", "blue", "camo"}
     found = set()
@@ -215,45 +210,78 @@ def _is_mono_color(top: str, bottom: str) -> bool:
     return bool(top_colors & bottom_colors)
 
 
-def _prioritize_black(
-    ranked: List[tuple], top_k: int
-) -> List[Dict[str, object]]:
-    results = []
-    for outfit, score in ranked[:top_k]:
-        results.append({"outfit": outfit, "probability": float(score)})
-
-    if any(_is_black_outfit(item["outfit"]) for item in results):
-        return results
-
-    for outfit, score in ranked[top_k:]:
-        if _is_black_outfit(outfit):
-            results[-1] = {"outfit": outfit, "probability": float(score)}
-            break
-
-    return results
-
-
 def _history_based_outfits(
-    label_counts: Dict[str, int], top_k: int
+    label_counts: Dict[str, int],
+    top_k: int,
+    last_outfit: Optional[str],
 ) -> List[Dict[str, object]]:
     if not label_counts:
         return []
     ranked_counts = sorted(label_counts.items(), key=lambda item: item[1], reverse=True)
     total = sum(label_counts.values()) or 1
     ranked = [(outfit, count / total) for outfit, count in ranked_counts]
-    return _prioritize_black(ranked, top_k)
+    return _select_top_k(ranked, top_k, last_outfit)
+
+
+def _get_last_outfit_label() -> Optional[str]:
+    if not os.path.exists(CSV_PATH):
+        return None
+
+    try:
+        df = _read_csv_dataframe()
+    except Exception:
+        return None
+
+    if df.empty:
+        return None
+
+    rename_map = {
+        "Day of the Week": "Day",
+        "Hoodie/Jacket": "Top",
+        "Pants/Sweats Color": "Bottom",
+    }
+    df = df.rename(columns=rename_map)
+    df.columns = [str(col).strip() for col in df.columns]
+
+    for _, row in df.tail(10).iloc[::-1].iterrows():
+        if "Outfit" in df.columns:
+            outfit = str(row.get("Outfit", "")).strip()
+            if outfit:
+                return outfit
+        if "Top" in df.columns and "Bottom" in df.columns:
+            top = str(row.get("Top", "")).strip()
+            bottom = str(row.get("Bottom", "")).strip()
+            if top and bottom:
+                return f"{top} | {bottom}"
+    return None
+
+
+def _select_top_k(
+    ranked: List[tuple],
+    top_k: int,
+    last_outfit: Optional[str],
+) -> List[Dict[str, object]]:
+    results = []
+    for outfit, score in ranked:
+        if last_outfit and outfit == last_outfit:
+            continue
+        results.append({"outfit": outfit, "probability": float(score)})
+        if len(results) >= top_k:
+            break
+    return results
 
 
 def predict_outfits(
     model_bundle: Dict[str, object], day: str, top_k: int
 ) -> List[Dict[str, object]]:
     label_counts = _get_label_counts(model_bundle)
+    last_outfit = _get_last_outfit_label()
     config = _load_config()
     force_synthetic = bool(config.get("force_synthetic", True))
     if force_synthetic and label_counts:
-        return _history_based_outfits(label_counts, top_k)
+        return _history_based_outfits(label_counts, top_k, last_outfit)
     if force_synthetic:
-        return generate_synthetic_outfits(top_k)
+        return generate_synthetic_outfits(top_k, last_outfit)
 
     pipeline = _get_pipeline(model_bundle)
     feature_columns = _get_feature_columns(model_bundle)
@@ -268,8 +296,6 @@ def predict_outfits(
     for outfit, score in zip(classes, probabilities):
         if label_counts and outfit not in label_counts:
             continue
-        if _is_black_outfit(outfit):
-            score *= 1.0 + BLACK_BONUS
         items.append(
             {
                 "outfit": outfit,
@@ -284,10 +310,12 @@ def predict_outfits(
         items.sort(key=lambda item: item["probability"], reverse=True)
 
     ranked = [(item["outfit"], item["probability"]) for item in items]
-    return _prioritize_black(ranked, top_k)
+    return _select_top_k(ranked, top_k, last_outfit)
 
 
-def generate_synthetic_outfits(top_k: int) -> List[Dict[str, object]]:
+def generate_synthetic_outfits(
+    top_k: int, last_outfit: Optional[str]
+) -> List[Dict[str, object]]:
     config = _load_config()
     top_weights_map = config.get("top_weights", DEFAULT_TOP_WEIGHTS)
     bottom_weights_map = config.get("bottom_weights", DEFAULT_BOTTOM_WEIGHTS)
@@ -309,7 +337,7 @@ def generate_synthetic_outfits(top_k: int) -> List[Dict[str, object]]:
             continue
         outfit = f"{top} | {bottom}"
         attempts += 1
-        if outfit in seen:
+        if outfit == last_outfit or outfit in seen:
             continue
         seen.add(outfit)
         score = top_weights_map[top] * bottom_weights_map[bottom]
